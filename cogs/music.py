@@ -4,6 +4,7 @@ from discord import app_commands, ui
 import yt_dlp as ytdl
 import asyncio
 import subprocess
+import random
 
 ORANGE_COLOR = 0xFFA500  # Orange color for embeds
 
@@ -17,7 +18,7 @@ def is_ffmpeg_installed():
 
 def get_youtube_audio(query):
     ytdl_opts = {
-        "format": "bestaudio/best",
+        "format": "bestaudio[abr<=320]/bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio/best",
         "noplaylist": True,
         "default_search": "ytsearch",
         "quiet": True,
@@ -25,14 +26,16 @@ def get_youtube_audio(query):
         "forceurl": True,
         "skip_download": True,
         "source_address": "0.0.0.0",
+        "prefer_ffmpeg": True,
         "extractor_args": {
             "youtube": {
-                "player_client": ["android", "web"],
-                "player_skip": ["webpage"]
+                "player_client": ["web"],
+                "player_skip": ["configs", "webpage"],
+                "skip": ["dash", "hls"]
             }
         },
         "http_headers": {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         }
     }
     with ytdl.YoutubeDL(ytdl_opts) as ydl:
@@ -61,10 +64,15 @@ class MusicPlayer:
             track = await self.queue.get()
             self.now_playing = track
             try:
-                source = await discord.FFmpegOpusAudio.from_probe(
-                    track["url"], 
-                    method="fallback",
-                    executable="ffmpeg"
+                # Simplified FFmpeg options for maximum compatibility
+                ffmpeg_options = {
+                    'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+                    'options': '-vn'
+                }
+                source = discord.FFmpegPCMAudio(
+                    track["url"],
+                    executable="ffmpeg",
+                    **ffmpeg_options
                 )
             except Exception as e:
                 if 'ffmpeg' in str(e).lower():
@@ -135,6 +143,8 @@ class MusicCog(commands.Cog):
             if after.channel and after.channel.id == last_channel:
                 try:
                     await after.channel.connect()
+                    # Auto-deafen the bot when auto-reconnecting
+                    await guild.change_voice_state(channel=after.channel, self_deaf=True)
                     embed = discord.Embed(
                         title="🔄 Auto-Reconnected",
                         description=f"Rejoined {after.channel.name} automatically",
@@ -173,6 +183,8 @@ class MusicCog(commands.Cog):
         if ctx.voice_client is None:
             try:
                 vc = await channel.connect()
+                # Auto-deafen the bot when joining
+                await ctx.guild.change_voice_state(channel=channel, self_deaf=True)
                 # Store last channel for auto-reconnect
                 self.last_channels[ctx.guild.id] = channel.id
             except Exception as e:
@@ -181,6 +193,8 @@ class MusicCog(commands.Cog):
         elif ctx.voice_client.channel != channel:
             try:
                 vc = await ctx.voice_client.move_to(channel)
+                # Auto-deafen the bot when moving
+                await ctx.guild.change_voice_state(channel=channel, self_deaf=True)
                 # Store last channel for auto-reconnect
                 self.last_channels[ctx.guild.id] = channel.id
             except Exception as e:
@@ -188,6 +202,8 @@ class MusicCog(commands.Cog):
                 return None
         else:
             vc = ctx.voice_client
+            # Ensure bot is deafened even if already connected
+            await ctx.guild.change_voice_state(channel=vc.channel, self_deaf=True)
         return vc
 
     @commands.command(name="play", aliases=["p"])
