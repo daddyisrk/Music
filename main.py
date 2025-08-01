@@ -21,7 +21,7 @@ STATUS_TYPE = os.getenv("STATUS_TYPE", "playing").lower()  # playing, watching, 
 STATUS_MSG = os.getenv("STATUS_MSG", "🎵 Music | r!play")
 
 intents = discord.Intents.default()
-intents.message_content = True
+intents.message_content = True  # Enable hearing messages content for prefix commands
 intents.voice_states = True  # Required for music features
 
 bot = commands.Bot(
