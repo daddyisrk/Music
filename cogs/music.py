@@ -25,6 +25,15 @@ def get_youtube_audio(query):
         "forceurl": True,
         "skip_download": True,
         "source_address": "0.0.0.0",
+        "extractor_args": {
+            "youtube": {
+                "player_client": ["android", "web"],
+                "player_skip": ["webpage"]
+            }
+        },
+        "http_headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
     }
     with ytdl.YoutubeDL(ytdl_opts) as ydl:
         info = ydl.extract_info(query, download=False)
