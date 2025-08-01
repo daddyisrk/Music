@@ -1,4 +1,6 @@
 import os
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 
 # FFmpeg is now installed via Nix in replit.nix
 
@@ -27,6 +29,22 @@ bot = commands.Bot(
     intents=intents,
     help_command=None,  # Remove default help command
 )
+
+# Simple HTTP server for hosting platforms that require port binding
+class SimpleHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'text/html')
+        self.end_headers()
+        self.wfile.write(b'Discord Bot is running!')
+    
+    def log_message(self, format, *args):
+        pass  # Suppress HTTP server logs
+
+def start_http_server():
+    port = int(os.getenv('PORT', 8080))  # Use PORT env var or default to 8080
+    server = HTTPServer(('0.0.0.0', port), SimpleHandler)
+    server.serve_forever()
 
 @bot.event
 async def on_ready():
@@ -58,6 +76,10 @@ async def on_ready():
         print(f"Error syncing commands: {e}")
 
 async def main():
+    # Start HTTP server in background thread (required by some hosting platforms)
+    http_thread = threading.Thread(target=start_http_server, daemon=True)
+    http_thread.start()
+    
     # Load cogs
     await bot.load_extension("cogs.music")
     await bot.load_extension("cogs.othercmd")
